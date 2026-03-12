@@ -1,42 +1,33 @@
-# Qwen3.5-35B-A3B-NVFP4 on RTX 5090 with vLLM
+# Qwen3.5-27B NVFP4 on RTX 5090 with vLLM
 
-Run [Qwen3.5-35B-A3B](https://huggingface.co/Qwen/Qwen3.5-35B-A3B) (Mamba-hybrid MoE, 35B total / 3B active) on a single **NVIDIA RTX 5090** (32 GB) using [vLLM](https://github.com/vllm-project/vllm) with **NVFP4 quantization**.
+Run [Huihui-Qwen3.5-27B-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3.5-27B-abliterated) on a single **NVIDIA RTX 5090** (32 GB) using [vLLM](https://github.com/vllm-project/vllm) with **NVFP4 quantization**.
 
-## ⚡ Performance
-
-Benchmarked on a single RTX 5090 (32 GB) with [llama-bench](https://github.com/ggml-org/llama.cpp/tree/master/tools/llama-bench) using the [Kbenkhaled/Qwen3.5-35B-A3B-NVFP4](https://huggingface.co/Kbenkhaled/Qwen3.5-35B-A3B-NVFP4) checkpoint:
-
-| Metric | 4K Context | 8K Context | 256K Context |
-|---|---|---|---|
-| **Prompt processing** (pp2048) | 21,232 t/s | 20,401 t/s | 5,124 t/s |
-| **Text generation** (tg32) | 196 t/s | 196 t/s | 156 t/s |
-| **Time to first token** | 290 ms | 503 ms | 51,142 ms |
-
-> **~200 tokens/sec generation speed** — fast enough for real-time interactive use.
+Default model: [lyf/Huihui-Qwen3.5-27B-abliterated-NVFP4](https://huggingface.co/lyf/Huihui-Qwen3.5-27B-abliterated-NVFP4) — quantized locally from the abliterated Qwen3.5-27B variant.
 
 ## Features
 
 - 256K context length with FP8 KV cache
 - NVFP4 quantization via Marlin GEMM backend
 - Works out of the box with vLLM v0.17+ — no patches or custom builds needed
-- Uses the official `vllm/vllm-openai:nightly` Docker image
+- Uses the `vllm/vllm-openai:cu130-nightly` Docker image
+- Fully parameterized via `.env` — switch models by changing `MODEL_ID`
 
 ## GPU Compatibility
 
 > **⚠️ This setup is tested and verified on NVIDIA RTX 5090 only.**
 
-NVFP4 quantization requires Blackwell architecture FP4 tensor core instructions. Additionally, the `vllm/vllm-openai:nightly` Docker image ships with PyTorch kernels compiled for **SM 12.0**, which matches the RTX 5090 but may not work on other Blackwell GPUs with different compute capabilities (e.g. DGX Spark GB10 is SM 12.1).
+NVFP4 quantization requires Blackwell architecture FP4 tensor core instructions. The `vllm/vllm-openai:cu130-nightly` Docker image ships with PyTorch kernels compiled for **SM 12.0**, which matches the RTX 5090 but may not work on other Blackwell GPUs with different compute capabilities (e.g. DGX Spark GB10 is SM 12.1).
 
 ## Quick Start
 
 ```bash
 # Clone this repo
-git clone https://github.com/Li-Lee/vllm-qwen3.5-nvfp4-5090.git
+git clone https://github.com/li-yifei/vllm-qwen3.5-nvfp4-5090.git
 cd vllm-qwen3.5-nvfp4-5090
 
 # Create your .env from the template
 cp .env.example .env
-# Edit .env with your HF token and cache path
+# Edit .env with your HF token and cache paths
 vim .env
 
 # Start the server
@@ -56,15 +47,19 @@ All user-specific settings live in `.env` (see [`.env.example`](.env.example)):
 |---|---|
 | `HF_TOKEN` | Your [Hugging Face token](https://huggingface.co/settings/tokens) (required for gated models) |
 | `HF_CACHE` | Path to your local HF cache directory (e.g. `/home/user/.cache/huggingface`) |
+| `VLLM_CACHE` | Path to vLLM AOT compilation cache (e.g. `/home/user/.cache/vllm`) |
+| `MODEL_ID` | HuggingFace model ID (default: `lyf/Huihui-Qwen3.5-27B-abliterated-NVFP4`) |
 
 ### Key vLLM Parameters
 
-| Parameter | Value | Notes |
+| Parameter | Default | Notes |
 |---|---|---|
-| `--max-model-len` | `262144` | 256K context window |
-| `--gpu-memory-utilization` | `0.85` | ~27 GB of 32 GB VRAM |
-| `--max-num-seqs` | `4` | Max concurrent sequences |
-| `--max-num-batched-tokens` | `4096` | Per-batch token budget |
+| `MAX_MODEL_LEN` | `262144` | 256K context window |
+| `GPU_MEMORY_UTILIZATION` | `0.8` | ~26 GB of 32 GB VRAM |
+| `MAX_NUM_SEQS` | `4` | Max concurrent sequences |
+| `MAX_NUM_BATCHED_TOKENS` | `4096` | Per-batch token budget |
+| `KV_CACHE_DTYPE` | `fp8` | KV cache precision |
+| `NVFP4_BACKEND` | `marlin` | NVFP4 GEMM backend |
 
 ## About the Patch (vLLM v0.16 only)
 
@@ -83,12 +78,6 @@ If you need to use vLLM v0.16, use the legacy configuration:
 docker compose -f docker-compose.v16.yml up -d
 ```
 
-## Benchmark
-
-Tested on a single NVIDIA RTX 5090 (32 GB) using [llama-bench](https://github.com/ggml-org/llama.cpp/tree/master/tools/llama-bench):
-
-![llama-bench results](llama-benchy.png)
-
 ## Requirements
 
 - **NVIDIA RTX 5090** (32 GB VRAM) — see [GPU Compatibility](#gpu-compatibility)
@@ -98,4 +87,4 @@ Tested on a single NVIDIA RTX 5090 (32 GB) using [llama-bench](https://github.co
 
 ## License
 
-This configuration is provided as-is. The model itself is subject to the [Qwen License](https://huggingface.co/Qwen/Qwen3.5-35B-A3B/blob/main/LICENSE).
+This configuration is provided as-is. The model itself is subject to the [Qwen License](https://huggingface.co/Qwen/Qwen3.5-27B/blob/main/LICENSE).
